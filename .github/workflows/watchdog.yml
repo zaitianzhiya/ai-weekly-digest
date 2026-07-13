@@ -1,0 +1,50 @@
+name: Watchdog (防漏发)
+
+# 借鉴 AI Safety Digest 的看门狗机制:
+# GitHub Actions 调度可能不稳定，周一 3 次检查
+# 若主工作流丢失则自动补发
+
+on:
+  schedule:
+    - cron: '43 11 * * 1'     # 周一 11:43 UTC (19:43 CST)
+    - cron: '43 13 * * 1'     # 周一 13:43 UTC (21:43 CST)
+    - cron: '43 15 * * 1'     # 周一 15:43 UTC (23:43 CST)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  check-and-rescue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check if weekly report exists for this week
+        id: check
+        run: |
+          WEEK=$(date +%Y-W%V)
+          echo "Checking for week: ${WEEK}"
+
+          if ls output/${WEEK}.md 2>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Weekly report found for ${WEEK}"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ No report found for ${WEEK} — will trigger rescue dispatch"
+          fi
+
+      - name: Trigger weekly publish (rescue)
+        if: steps.check.outputs.exists == 'false'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'weekly-digest.yml',
+              ref: 'main'
+            });
+            console.log('🆘 Watchdog dispatched weekly-digest.yml for rescue.');
