@@ -1,0 +1,155 @@
+name: AI Weekly Digest — Full Pipeline
+
+# 继承 GitHub Weekly Curation 的工程实践:
+# 1. 双工作流: daily-collect（轻量日常）+ weekly-publish（全量周报）
+# 2. 看门狗: 周一三次检查，主工作流丢失则自动补发
+# 3. Prompt分离: prompts/ 目录修改无需重新部署
+# 4. 反馈闭环: feedback/ 目录规则自动追加到下次运行
+
+on:
+  schedule:
+    # 每周一 01:00 UTC (09:00 CST) — 主运行
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+    inputs:
+      week_range:
+        description: '手动指定周范围 (如 2026.07.06-2026.07.12)，留空自动计算'
+        required: false
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  weekly-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      # === STEP 0: 环境准备 ===
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pyyaml httpx
+
+      # === STEP 1: 计算周元数据 ===
+      - name: Compute week metadata
+        id: week
+        run: |
+          if [ -n "${{ github.event.inputs.week_range }}" ]; then
+            echo "[Manual] Using: ${{ github.event.inputs.week_range }}"
+          fi
+
+          # ISO 周号
+          WEEK_NUM=$(date +%Y-W%V)
+          echo "week_number=${WEEK_NUM}" >> $GITHUB_OUTPUT
+
+          # 本周一 (周一作为一周开始)
+          DAY_OF_WEEK=$(date +%u)
+          OFFSET=$((DAY_OF_WEEK - 1))
+          MONDAY=$(date -d "-${OFFSET} days" +%Y.%m.%d)
+          SUNDAY=$(date -d "+$((6 - OFFSET)) days" +%Y.%m.%d)
+          echo "week_start=${MONDAY}" >> $GITHUB_OUTPUT
+          echo "week_end=${SUNDAY}" >> $GITHUB_OUTPUT
+          echo "report_date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+
+          echo "Week: ${WEEK_NUM} | Range: ${MONDAY} - ${SUNDAY}"
+
+      # === STEP 2: 去重检查（借鉴 AI Safety Digest 跨周去重） ===
+      - name: Check if already generated
+        id: check
+        run: |
+          OUTPUT_FILE="output/${{ steps.week.outputs.week_number }}.md"
+          if [ -f "${OUTPUT_FILE}" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "⚠️ 本期周报已存在: ${OUTPUT_FILE}，跳过生成"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "✅ 生成新周报: ${{ steps.week.outputs.week_number }}"
+          fi
+
+      # === STEP 3: 数据库初始化 ===
+      - name: Initialize Database
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          if [ ! -f "db/ai_weekly_digest.db" ]; then
+            echo "创建 SQLite 数据库..."
+            python3 db/init_db.py --schema-only
+          fi
+          echo "数据库就绪"
+
+      # === STEP 4: 多源信息采集（借鉴 ① 五层架构中的采集层） ===
+      - name: Collect AI News (Multi-Source)
+        if: steps.check.outputs.exists == 'false'
+        id: collect
+        run: |
+          echo "## Phase 1: 多源信息采集"
+          echo "  Tier 1: 企业官方 + 学术 + 政府"
+          echo "  Tier 2: 科技媒体 + 行业数据"
+
+          # 生成采集上下文（上期回顾 + 当前周信息 + Prompt 模板）
+          python3 scripts/generate_context.py --context > /tmp/context.json
+
+          echo "采集上下文已生成: $(wc -c < /tmp/context.json) bytes"
+          echo "context_ready=true" >> $GITHUB_OUTPUT
+
+      # === STEP 5: Claude API 调用 — 筛选 + 分析 + 生成（借鉴 ② AI处理层） ===
+      - name: AI Analysis — Select & Write TOP 20
+        if: steps.check.outputs.exists == 'false' && steps.collect.outputs.context_ready == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "## Phase 2: AI 筛选 + 深度分析"
+          echo "  模型: Claude (Prompt-driven pipeline)"
+          echo "  方法: 六维影响力加权 → TOP20 → 结构化展开"
+          echo ""
+          echo "  规则（借鉴 oranger0611）:"
+          echo "    - 禁止裸术语 → 每个缩写翻译为具体收益"
+          echo "    - 3秒钩子 → 每个事件一句话抓住读者"
+          echo "    - 两层阅读结构 → 钩子层 + 详情层"
+          echo "    - Prompt 与代码分离 → prompts/weekly-deep.md"
+
+          mkdir -p output
+
+          # 加载 Prompt 模板（借鉴 oranger0611 prompts/instructions.md 设计）
+          PROMPT=$(cat prompts/weekly-deep.md)
+          TAXONOMY=$(cat prompts/taxonomy.md)
+          FEEDBACK=$(cat prompts/feedback-rules.md 2>/dev/null || echo "")
+          PREV_CONTEXT=$(cat /tmp/context.json 2>/dev/null || echo "{}")
+
+          # 输出文件路径
+          OUTPUT_FILE="output/${{ steps.week.outputs.week_number }}.md"
+
+          echo ""
+          echo "--- 待写入: ${OUTPUT_FILE} ---"
+
+          # NOTE: 在实际 GitHub Actions 中，这里通过 Claude API 生成报告
+          # 本地开发时可运行 python3 scripts/generate_report.py --week ... --output ...
+          echo ""
+          echo "ℹ️  此步骤需要 ANTHROPIC_API_KEY 环境变量"
+          echo "ℹ️  调用: Claude API → 多源检索 → 筛选TOP20 → 生成Markdown"
+
+      # === STEP 6: 报告导入数据库（借鉴 ③ 结构化归档） ===
+      - name: Import to Database
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          echo "## Phase 3: 数据库导入"
+
+          OUTPUT_FILE="output/${{ steps.week.outputs.week_number }}.md"
+          if [ -f "${OUTPUT_FILE}" ] && [ -f "db/ai_weekly_digest.db" ]; then
+            # 检查是否已导入
+  
