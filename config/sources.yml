@@ -1,0 +1,194 @@
+# AI Weekly Digest — 信息源配置
+# 继承自 GitHub Weekly Curation 的多源交叉验证体系
+
+sources:
+  # === Tier 1: AI 企业官方源 ===
+  openai_blog:
+    name: "OpenAI 官方博客"
+    tier: 1
+    ecosystem: "frontier_lab"
+    type: web_fetch
+    url: "https://openai.com/blog"
+    enabled: true
+    frequency: weekly
+
+  anthropic_blog:
+    name: "Anthropic 官方博客"
+    tier: 1
+    ecosystem: "frontier_lab"
+    type: web_fetch
+    url: "https://www.anthropic.com/research"
+    enabled: true
+    frequency: weekly
+
+  google_deepmind:
+    name: "Google DeepMind 官方"
+    tier: 1
+    ecosystem: "frontier_lab"
+    type: web_fetch
+    url: "https://deepmind.google/discover/blog/"
+    enabled: true
+    frequency: weekly
+
+  meta_ai:
+    name: "Meta AI 官方"
+    tier: 1
+    ecosystem: "frontier_lab"
+    type: web_fetch
+    url: "https://ai.meta.com/blog/"
+    enabled: true
+    frequency: weekly
+
+  microsoft_ai:
+    name: "Microsoft AI 官方"
+    tier: 1
+    ecosystem: "big_tech"
+    type: web_fetch
+    url: "https://blogs.microsoft.com/ai/"
+    enabled: true
+    frequency: weekly
+
+  apple_ml:
+    name: "Apple Machine Learning Research"
+    tier: 1
+    ecosystem: "big_tech"
+    type: web_fetch
+    url: "https://machinelearning.apple.com/"
+    enabled: true
+    frequency: weekly
+
+  nvidia_blog:
+    name: "NVIDIA AI Blog"
+    tier: 1
+    ecosystem: "hardware"
+    type: web_fetch
+    url: "https://blogs.nvidia.com/blog/category/ai/"
+    enabled: true
+    frequency: weekly
+
+  # === Tier 1: 学术预印本 ===
+  arxiv:
+    name: "arXiv AI"
+    tier: 1
+    ecosystem: "academic"
+    type: rss
+    url: "http://export.arxiv.org/rss/cs.AI"
+    enabled: true
+    frequency: daily
+    max_items: 30
+
+  arxiv_cl:
+    name: "arXiv CL"
+    tier: 1
+    ecosystem: "academic"
+    type: rss
+    url: "http://export.arxiv.org/rss/cs.CL"
+    enabled: true
+    frequency: daily
+    max_items: 20
+
+  # === Tier 1: 政府公告 ===
+  whitehouse:
+    name: "美国白宫 AI 政策"
+    tier: 1
+    ecosystem: "government"
+    type: web_search
+    enabled: true
+    frequency: weekly
+
+  eu_ai_act:
+    name: "欧盟 AI 监管"
+    tier: 1
+    ecosystem: "government"
+    type: web_search
+    enabled: true
+    frequency: weekly
+
+  # === Tier 2: 科技媒体 ===
+  techcrunch_ai:
+    name: "TechCrunch AI"
+    tier: 2
+    ecosystem: "en_media"
+    type: web_search
+    enabled: true
+    frequency: weekly
+
+  venturebeat_ai:
+    name: "VentureBeat AI"
+    tier: 2
+    ecosystem: "en_media"
+    type: web_search
+    enabled: true
+    frequency: weekly
+
+  the_verge_ai:
+    name: "The Verge AI"
+    tier: 2
+    ecosystem: "en_media"
+    type: web_search
+    enabled: true
+    frequency: weekly
+
+  arstechnica_ai:
+    name: "Ars Technica AI"
+    tier: 2
+    ecosystem: "en_media"
+    type: web_search
+    enabled: true
+    frequency: weekly
+
+  wired_ai:
+    name: "Wired AI"
+    tier: 2
+    ecosystem: "en_media"
+    type: web_search
+    enabled: true
+    frequency: weekly
+
+  # === Tier 2: 行业分析 ===
+  crunchbase:
+    name: "Crunchbase AI Funding"
+    tier: 2
+    ecosystem: "industry_data"
+    type: web_search
+    enabled: true
+    frequency: weekly
+
+  morgan_stanley:
+    name: "Morgan Stanley AI Research"
+    tier: 2
+    ecosystem: "industry_data"
+    type: web_search
+    enabled: true
+    frequency: weekly
+
+# 生态分组（用于来源独立性权重修正）
+ecosystems:
+  frontier_lab:
+    name: "前沿 AI 实验室"
+    sources: ["openai_blog", "anthropic_blog", "google_deepmind", "meta_ai", "xai"]
+    independence_weight: 0.7
+  big_tech:
+    name: "科技巨头"
+    sources: ["microsoft_ai", "apple_ml"]
+    independence_weight: 0.8
+  hardware:
+    name: "硬件厂商"
+    sources: ["nvidia_blog"]
+    independence_weight: 0.8
+  academic:
+    name: "学术界"
+    sources: ["arxiv", "arxiv_cl"]
+    independence_weight: 1.0
+  government:
+    name: "政府与监管"
+    sources: ["whitehouse", "eu_ai_act"]
+    independence_weight: 1.0
+  en_media:
+    name: "英文科技媒体"
+    sources: ["techcrunch_ai", "venturebeat_ai", "the_verge_ai", "arstechnica_ai", "wired_ai"]
+    independence_weight: 0.6
+  industry_data:
+    name: "行业数据"
+    sources: ["crunchbase", "morgan_stanley"]
+    independence_weight: 0.8
