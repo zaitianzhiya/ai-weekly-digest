@@ -1,0 +1,7 @@
+# AI Weekly Digest
+
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
